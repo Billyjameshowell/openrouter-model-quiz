@@ -38,12 +38,14 @@ const state = {
   durationMs: 0,
   saved: false,
   savedName: '',
+  displayName: '',
   highlightId: null,
   nameError: '',
   shareNote: '',
 };
 
 let shareTimer = 0;
+let sharing = false;
 
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -388,6 +390,8 @@ function renderResults() {
             autocomplete: 'nickname',
             placeholder: 'Your name',
             required: true,
+            value: state.displayName,
+            onInput: (event) => { state.displayName = event.target.value; },
           }),
         ]),
         state.nameError ? el('p', { class: 'error', role: 'alert', text: state.nameError }) : null,
@@ -399,7 +403,7 @@ function renderResults() {
     el('p', { class: 'kicker center', text: 'OpenRouter Model Quiz' }),
     el('section', { class: 'panel game-over' }, [
       el('div', { class: 'score-hero' }, [
-        el('p', { class: 'label', text: 'Best streak' }),
+        el('p', { class: 'label', id: 'results-title', tabindex: '-1', text: 'Best streak' }),
         el('p', { class: 'score', text: String(state.bestStreak) }),
         el('p', { class: 'streak-label', text: 'in a row' }),
         livesRow(state.lives, `${livesUsed} ${livesUsed === 1 ? 'life' : 'lives'} used`),
@@ -410,12 +414,14 @@ function renderResults() {
       ]),
       glyphRow(),
       el('button', {
-        class: state.shareNote ? 'share done' : 'share',
+        class: 'share',
         type: 'button',
         id: 'share-score',
-        text: state.shareNote || 'Share',
+        text: 'Share score',
+        disabled: sharing,
         onClick: onShare,
       }),
+      el('p', { id: 'share-status', class: 'share-status', role: 'status', text: state.shareNote }),
       form,
       state.error ? el('p', { class: 'error', role: 'alert', text: state.error }) : null,
     ]),
@@ -424,8 +430,7 @@ function renderResults() {
   ]);
   app.replaceChildren(root);
   window.scrollTo(0, 0);
-  if (state.shareNote) root.querySelector('#share-score')?.focus({ preventScroll: true });
-  else root.querySelector('input[name="displayName"]')?.focus({ preventScroll: true });
+  root.querySelector(state.nameError ? 'input[name="displayName"]' : '#results-title')?.focus({ preventScroll: true });
 }
 
 function render() {
@@ -472,6 +477,7 @@ async function startGame() {
     state.durationMs = 0;
     state.saved = false;
     state.savedName = '';
+    state.displayName = '';
     state.highlightId = null;
     state.nameError = '';
     state.view = 'quiz';
@@ -504,7 +510,7 @@ function choose(choiceId) {
 }
 
 function advance() {
-  if (state.view !== 'quiz') return;
+  if (state.view !== 'quiz' || state.picked == null) return;
   if (state.lives <= 0) {
     finishRun();
     render();
@@ -530,12 +536,19 @@ function onSave(event) {
     render();
     return;
   }
-  const { entry } = saveScore({
-    name,
-    score: state.bestStreak,
-    totalCorrect: state.totalCorrect,
-    durationMs: state.durationMs,
-  });
+  let entry;
+  try {
+    ({ entry } = saveScore({
+      name,
+      score: state.bestStreak,
+      totalCorrect: state.totalCorrect,
+      durationMs: state.durationMs,
+    }));
+  } catch {
+    state.nameError = 'Could not save in this browser. Allow site storage and try again.';
+    render();
+    return;
+  }
   state.saved = true;
   state.savedName = name;
   state.highlightId = entry.id;
@@ -566,45 +579,51 @@ function copyText(text) {
 
 function flashShare(note) {
   state.shareNote = note;
-  const button = document.getElementById('share-score');
-  if (button && state.view === 'results') {
-    button.textContent = note;
-    button.classList.add('done');
-    window.clearTimeout(shareTimer);
-    shareTimer = window.setTimeout(() => {
-      state.shareNote = '';
-      const current = document.getElementById('share-score');
-      if (!current || state.view !== 'results') return;
-      current.textContent = 'Share';
-      current.classList.remove('done');
-    }, 1600);
-    return;
-  }
-  render();
+  const status = document.getElementById('share-status');
+  if (status) status.textContent = note;
+  window.clearTimeout(shareTimer);
+  shareTimer = window.setTimeout(() => {
+    state.shareNote = '';
+    const current = document.getElementById('share-status');
+    if (current) current.textContent = '';
+  }, 3000);
 }
 
 async function onShare() {
+  if (sharing || state.view !== 'results') return;
+  sharing = true;
+  const button = document.getElementById('share-score');
+  button.disabled = true;
+  const runStartedAt = state.startedAt;
+  const notify = (note) => {
+    if (state.view === 'results' && state.startedAt === runStartedAt) flashShare(note);
+  };
   const text = streakShareText(state.bestStreak, currentPageUrl());
-  const coarse = window.matchMedia('(pointer: coarse)').matches;
-  if (coarse && typeof navigator.share === 'function') {
-    try {
-      await navigator.share({ text });
-      flashShare('Shared');
-      return;
-    } catch (error) {
-      if (error?.name === 'AbortError') return;
-    }
-  }
   try {
-    await copyText(text);
-    flashShare('Copied!');
-  } catch {
-    flashShare('Copy failed');
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ text });
+        notify('Shared');
+        return;
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+      }
+    }
+    try {
+      await copyText(text);
+      notify('Copied!');
+    } catch {
+      notify('Could not copy. Try sharing again.');
+    }
+  } finally {
+    sharing = false;
+    const current = document.getElementById('share-score');
+    if (current) current.disabled = false;
   }
 }
 
 document.addEventListener('keydown', (event) => {
-  if (state.view !== 'quiz') return;
+  if (state.view !== 'quiz' || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
   const question = state.question;
   if (!question) return;
   if (state.picked == null) {
@@ -619,6 +638,7 @@ document.addEventListener('keydown', (event) => {
   }
   if (event.key === 'Enter') {
     if (event.target instanceof Element && event.target.closest('a')) return;
+    event.preventDefault();
     advance();
   }
 });
