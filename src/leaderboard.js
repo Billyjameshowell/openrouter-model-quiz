@@ -1,4 +1,8 @@
-const STORAGE_KEY = 'openrouter-model-quiz-v1';
+const STORAGE_KEY = 'openrouter-model-quiz-v2';
+
+function validCount(value, max) {
+  return Number.isInteger(value) && value >= 0 && value <= max;
+}
 
 function validEntry(entry) {
   return (
@@ -6,9 +10,8 @@ function validEntry(entry) {
     typeof entry.id === 'string' &&
     typeof entry.name === 'string' &&
     entry.name.trim().length > 0 &&
-    Number.isInteger(entry.score) &&
-    entry.score >= 0 &&
-    entry.score <= 10 &&
+    validCount(entry.score, 100000) &&
+    (entry.totalCorrect == null || validCount(entry.totalCorrect, 100000)) &&
     typeof entry.durationMs === 'number' &&
     Number.isFinite(entry.durationMs) &&
     entry.durationMs >= 0
@@ -35,15 +38,22 @@ export function loadLeaderboard() {
   }
 }
 
-function sortBoard(entries) {
-  return entries.slice().sort((a, b) => b.score - a.score || a.durationMs - b.durationMs || a.savedAt - b.savedAt);
+function tieCorrect(entry) {
+  return entry.totalCorrect ?? entry.score;
 }
 
-export function saveScore({ name, score, durationMs }) {
+function sortBoard(entries) {
+  return entries.slice().sort(
+    (a, b) => b.score - a.score || tieCorrect(b) - tieCorrect(a) || a.durationMs - b.durationMs || a.savedAt - b.savedAt,
+  );
+}
+
+export function saveScore({ name, score, totalCorrect, durationMs }) {
   const entry = {
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     name,
     score,
+    totalCorrect: validCount(totalCorrect, 100000) ? totalCorrect : score,
     durationMs,
     savedAt: Date.now(),
   };
