@@ -1,6 +1,6 @@
 # OpenRouter Model Quiz
 
-A single-page quiz about models on OpenRouter. Each game is 10 questions generated from the live public catalog. No API key, account, or backend. Scores stay in this browser.
+A single-page streak quiz about models on OpenRouter. You start with 3 lives and play until you miss three times. A wrong answer costs a life and resets the current streak. The leaderboard keeps the best streak from each run, in this browser only. No API key, account, or backend.
 
 ## Play locally
 

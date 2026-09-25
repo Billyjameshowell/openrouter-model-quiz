@@ -219,6 +219,123 @@ h1 {
   display: block;
 }
 
+.feedback p {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.hud {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.hud-stat.best {
+  text-align: right;
+}
+
+.hud-num {
+  font-size: 1.7rem;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.lives {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 8px 0 0;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.hud .lives {
+  margin: 0;
+}
+
+.heart.empty {
+  opacity: 0.55;
+}
+
+.kicker.center {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.question-kicker {
+  margin-bottom: 10px;
+}
+
+.game-over {
+  text-align: center;
+}
+
+.game-over .form,
+.game-over label {
+  text-align: left;
+}
+
+.game-over .form {
+  margin-top: 14px;
+}
+
+.streak-label {
+  font-size: 1.35rem;
+  font-weight: 720;
+  letter-spacing: -0.03em;
+}
+
+.glyphs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 280px;
+  margin: 16px auto 0;
+}
+
+.glyph {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.glyph.hit {
+  background: var(--good);
+}
+
+.glyph.miss {
+  background: var(--bad);
+}
+
+.share {
+  width: 100%;
+  margin-top: 18px;
+  border: 0;
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: var(--text);
+  color: #12151c;
+  font-weight: 750;
+  font-size: 1.05rem;
+}
+
+.share.done {
+  background: var(--good);
+}
+
+.results .score-hero {
+  padding-bottom: 8px;
+}
+
+.results .play {
+  margin-top: 4px;
+}
+
 .learn-block {
   margin-top: 14px;
   animation: learn-in 180ms ease;

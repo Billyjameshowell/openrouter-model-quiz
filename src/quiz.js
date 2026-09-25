@@ -278,3 +278,53 @@ export function generateQuiz(models, seed) {
 
   return shuffle(questions, rng).slice(0, 10);
 }
+
+const SLOT_BAG = [
+  'params',
+  'params',
+  'coding',
+  'coding',
+  'context',
+  'intelligence',
+  'price',
+  'vision-yes',
+  'vision-no',
+  'video-yes',
+  'video-no',
+];
+
+export function createDeck(models, seed) {
+  const rng = mulberry32(seed);
+  const seenPairs = new Set();
+  const seenModels = new Set();
+  let queue = [];
+
+  const take = (slot) => tidyFact(buildSlot(slot, models, rng, seenPairs, seenModels));
+
+  const draw = () => {
+    if (!queue.length) queue = shuffle(SLOT_BAG, rng);
+    const slot = queue.shift();
+    let question = take(slot);
+    if (!question) {
+      for (const alt of shuffle(FALLBACK_SLOTS, rng)) {
+        question = take(alt);
+        if (question) break;
+      }
+    }
+    return question;
+  };
+
+  return {
+    nextQuestion() {
+      for (let pass = 0; pass < 3; pass += 1) {
+        if (pass === 1) seenPairs.clear();
+        if (pass === 2) seenModels.clear();
+        for (let attempt = 0; attempt < SLOT_BAG.length; attempt += 1) {
+          const question = draw();
+          if (question) return question;
+        }
+      }
+      throw new Error('Not enough comparable models to continue the quiz.');
+    },
+  };
+}
