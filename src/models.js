@@ -149,6 +149,27 @@ function positiveNumber(value) {
   return n != null && n > 0 ? n : null;
 }
 
+function readReasoning(reasoning) {
+  if (!reasoning || typeof reasoning !== 'object') {
+    return { enabled: false, efforts: [] };
+  }
+  const efforts = Array.isArray(reasoning.supported_efforts)
+    ? reasoning.supported_efforts
+        .filter((item) => typeof item === 'string' && item.trim())
+        .map((item) => item.trim())
+    : [];
+  return { enabled: true, efforts };
+}
+
+function formatUtcDate(date) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+}
+
 export function prepareModels(list) {
   const raw = Array.isArray(list) ? list : [];
   const ids = new Set(raw.map((model) => model?.id).filter((id) => typeof id === 'string' && id));
@@ -167,24 +188,82 @@ export function prepareModels(list) {
       const modalities = Array.isArray(model.architecture?.input_modalities)
         ? model.architecture.input_modalities.map((item) => String(item).toLowerCase())
         : [];
+      const description = typeof model.description === 'string' ? model.description : '';
       const analysis = model.benchmarks?.artificial_analysis ?? {};
       const prompt = finiteNumber(model.pricing?.prompt);
+      const completion = finiteNumber(model.pricing?.completion);
+      const created = finiteNumber(model.created);
+      const cutoff = typeof model.knowledge_cutoff === 'string' ? model.knowledge_cutoff.trim() : '';
+      const reasoning = readReasoning(model.reasoning);
       return {
         id: model.id,
         name,
-        params: extractParamCount(
-          name,
-          typeof model.description === 'string' ? model.description : '',
-        ),
+        params: extractParamCount(name, description),
         coding: finiteNumber(analysis.coding_index),
         intelligence: finiteNumber(analysis.intelligence_index),
+        agentic: finiteNumber(analysis.agentic_index),
         context: positiveNumber(model.context_length),
         vision: modalities.includes('image'),
         video: modalities.includes('video'),
         modalities,
         promptPrice: prompt != null && prompt >= 0 ? prompt : null,
+        completionPrice: completion != null && completion >= 0 ? completion : null,
+        created: created != null && created > 0 ? created : null,
+        knowledgeCutoff: cutoff || null,
+        description,
+        reasoning: reasoning.enabled,
+        efforts: reasoning.efforts,
       };
     });
+}
+
+export function modelProvider(id) {
+  const text = String(id || '');
+  const slash = text.indexOf('/');
+  if (slash <= 0) return 'unknown';
+  return text.slice(0, slash);
+}
+
+export function modelPageUrl(id) {
+  const parts = String(id || '')
+    .split('/')
+    .filter(Boolean)
+    .map((part) => encodeURIComponent(part));
+  return `https://openrouter.ai/${parts.join('/')}`;
+}
+
+export function modelBlurb(description) {
+  const text = String(description || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  if (text.length <= 140) return text;
+  const slice = text.slice(0, 140);
+  const lastSpace = slice.lastIndexOf(' ');
+  const base = (lastSpace >= 100 ? slice.slice(0, lastSpace) : slice).replace(/[\s.,;:–—-]+$/, '');
+  return `${base}…`;
+}
+
+export function formatListedDate(unixSeconds) {
+  const n = finiteNumber(unixSeconds);
+  if (n == null || n <= 0) return null;
+  const seconds = n > 1e12 ? n / 1000 : n;
+  return formatUtcDate(new Date(seconds * 1000));
+}
+
+export function formatCutoff(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
+  if (!match) return trimmed;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (Number.isNaN(date.getTime())) return trimmed;
+  return formatUtcDate(date);
+}
+
+export function formatReasoning(model) {
+  if (!model?.reasoning) return 'No';
+  if (!model.efforts?.length) return 'Yes';
+  return `Yes · ${model.efforts.join(', ')}`;
 }
 
 export function formatParams(count) {

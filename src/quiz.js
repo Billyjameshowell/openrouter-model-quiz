@@ -111,6 +111,7 @@ function comparisonQuestion({ kind, prompt, models, read, describe, higher, rng,
     choices: ordered.map((model, index) => ({ id: String(index), label: model.name })),
     answerId: winner,
     fact: `${ordered[0].name} — ${describe(ordered[0])} vs ${ordered[1].name} — ${describe(ordered[1])}`,
+    models: ordered,
   };
 }
 
@@ -132,6 +133,7 @@ function yesNoQuestion({ kind, prompt, models, flag, want, rng, seenModels, fact
     ],
     answerId: want ? 'yes' : 'no',
     fact: fact(model, modalities),
+    models: [model],
   };
 }
 
